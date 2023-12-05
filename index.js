@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
 const port = process.env.PORT || 5000
@@ -27,10 +28,10 @@ async function run() {
     const userCollection = client.db("bistroDB").collection("users");
     const reviewCollection = client.db("bistroDB").collection("reviews");
     const cartCollection = client.db("bistroDB").collection("carts");
+    const paymentCollection = client.db("bistroDB").collection("payments");
 
     // jwt related
     const verifyToken = (req, res, next) => {
-      // console.log('inside verifY token', req.headers)
       if(!req.headers.authorization){
         return res.status(401).send({massage: 'unauthorized access'})
       }
@@ -183,6 +184,57 @@ async function run() {
       const query = {_id : new ObjectId(id)}
       const result = await cartCollection.deleteOne(query)
       res.send(result)
+    })
+
+    app.post('/create-payment-intent', async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, 'amount inside the intent')
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    });
+
+    app.get('/payments/:email', verifyToken, async (req, res) => {
+      const query = { email: req.params.email }
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    app.post('/payments', async(req, res) => {
+      const payment = req.body 
+      const paymentResult = await paymentCollection.insertOne(payment)
+      console.log('payment info', payment)
+      const query = {_id: {
+        $in: payment.cartIds.map(id => new ObjectId(id))
+      }}
+      const deleteResult = await cartCollection.deleteMany(query)
+            // send user email about payment confirmation letter
+            mg.messages
+            .create(process.env.MAIL_SENDING_DOMAIN, {
+              from: "Mailgun Sandbox <postmaster@sandboxbdfffae822db40f6b0ccc96ae1cb28f3.mailgun.org>",
+              to: ["jhankarmahbub7@gmail.com"],
+              subject: "Bistro Boss Order Confirmation",
+              text: "Testing some Mailgun awesomness!",
+              html: `
+                <div>
+                  <h2>Thank you for your order</h2>
+                  <h4>Your Transaction Id: <strong>${payment.transactionId}</strong></h4>
+                  <p>We would like to get your feedback about the food</p>
+                </div>
+              `
+            })
+            .then(msg => console.log(msg)) 
+            .catch(err => console.log(err)); 
+      res.send({paymentResult, deleteResult})
     })
 
     await client.db("admin").command({ ping: 1 });
