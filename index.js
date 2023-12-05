@@ -5,6 +5,13 @@ const jwt = require('jsonwebtoken');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
+// const formData = require('form-data');
+// const Mailgun = require('mailgun.js');
+// const mailgun = new Mailgun(formData);
+// const mg = mailgun.client({
+//   username: 'api',
+//   key: process.env.MAIL_GUN_API_KEY,
+// });
 const port = process.env.PORT || 5000
 
 app.use(cors());
@@ -22,8 +29,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-
     const menuCollection = client.db("bistroDB").collection("menu");
     const userCollection = client.db("bistroDB").collection("users");
     const reviewCollection = client.db("bistroDB").collection("reviews");
@@ -218,22 +223,22 @@ async function run() {
       }}
       const deleteResult = await cartCollection.deleteMany(query)
             // send user email about payment confirmation letter
-            mg.messages
-            .create(process.env.MAIL_SENDING_DOMAIN, {
-              from: "Mailgun Sandbox <postmaster@sandboxbdfffae822db40f6b0ccc96ae1cb28f3.mailgun.org>",
-              to: ["jhankarmahbub7@gmail.com"],
-              subject: "Bistro Boss Order Confirmation",
-              text: "Testing some Mailgun awesomness!",
-              html: `
-                <div>
-                  <h2>Thank you for your order</h2>
-                  <h4>Your Transaction Id: <strong>${payment.transactionId}</strong></h4>
-                  <p>We would like to get your feedback about the food</p>
-                </div>
-              `
-            })
-            .then(msg => console.log(msg)) 
-            .catch(err => console.log(err)); 
+            // mg.messages
+            // .create(process.env.MAIL_SENDING_DOMAIN, {
+            //   from: "Mailgun Sandbox <postmaster@sandboxbdfffae822db40f6b0ccc96ae1cb28f3.mailgun.org>",
+            //   to: ["jhankarmahbub7@gmail.com"],
+            //   subject: "Bistro Boss Order Confirmation",
+            //   text: "Testing some Mailgun awesomness!",
+            //   html: `
+            //     <div>
+            //       <h2>Thank you for your order</h2>
+            //       <h4>Your Transaction Id: <strong>${payment.transactionId}</strong></h4>
+            //       <p>We would like to get your feedback about the food</p>
+            //     </div>
+            //   `
+            // })
+            // .then(msg => console.log(msg)) 
+            // .catch(err => console.log(err)); 
       res.send({paymentResult, deleteResult})
     })
 
@@ -256,7 +261,6 @@ async function run() {
         }
       ]).toArray();
       const revenue = result.length > 0 ? result[0].totalRevenue : 0;
-
       res.send({
         users,
         menuItems,
@@ -301,7 +305,6 @@ async function run() {
       res.send(result);
     })
 
-    await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
